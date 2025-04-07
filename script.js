@@ -203,7 +203,7 @@ async function processPDF() {
       const pageText = textCont.items.map(item => item.str.toUpperCase()).join(' ');
 
       const hasBand       = pageText.includes('BAND');
-      const hasOrchestra  = pageText.includes('ORCHESTRA');
+      const hasOrchestra  = pageText.includes('ORCHESTRA') || pageText.includes('ORCHEST');
 
       // Decide if we keep this page based on filter
       let keepPage = false;
