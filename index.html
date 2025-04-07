@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PDF Processor for Band/Orchestra</title>
-    <!-- Load libraries -->
-    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <!-- Load only PDF.js library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         body {
@@ -123,57 +122,34 @@
             gap: 10px;
             margin-top: 20px;
         }
-        .button-group button, .button-group a {
-            flex: 1;
-        }
-        .download-link {
-            display: block;
-            text-align: center;
-            padding: 12px;
-            background-color: #4caf50;
-            color: white;
-            border-radius: 4px;
-            font-size: 16px;
-            font-weight: 600;
-            text-decoration: none;
-            transition: background-color 0.3s;
-        }
-        .download-link:hover {
-            background-color: #388e3c;
-        }
-        .pdf-preview {
+        .results-list {
             margin-top: 20px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            overflow: hidden;
-            height: 500px;
-        }
-        iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-        }
-        .secondary-button {
-            background-color: white;
-            color: #4285f4;
-            border: 1px solid #4285f4;
-        }
-        .secondary-button:hover {
-            background-color: #f5f5f5;
-        }
-        .instructions {
-            margin-bottom: 20px;
             padding: 15px;
             background-color: #f8f9fa;
-            border-left: 4px solid #4285f4;
-            border-radius: 0 4px 4px 0;
+            border-radius: 4px;
+            border: 1px solid #ddd;
         }
-        .instructions h3 {
+        .results-list h3 {
             margin-top: 0;
             color: #4285f4;
         }
-        .instructions ul {
+        .page-item {
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .page-item:last-child {
             margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+        .page-number {
+            font-weight: bold;
+        }
+        .match-highlight {
+            background-color: #ffeb3b;
+            padding: 2px 4px;
+            border-radius: 2px;
         }
         .hidden {
             display: none;
@@ -184,22 +160,24 @@
             font-size: 14px;
             color: #7f8c8d;
         }
+        .download-section {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .info-box {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+            border-radius: 4px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>PDF Processor for Band/Orchestra</h1>
-        <p class="subtitle">Filter and highlight "BAND" and "ORCHESTRA" in your PDF documents</p>
-        
-        <div class="instructions">
-            <h3>How It Works</h3>
-            <ul>
-                <li>Upload your PDF file</li>
-                <li>Select whether to keep pages containing "BAND", "ORCHESTRA", or both</li>
-                <li>Process your PDF</li>
-                <li>Download the filtered PDF with highlighted terms</li>
-            </ul>
-        </div>
+        <p class="subtitle">Find pages containing "BAND" and "ORCHESTRA" in your PDF</p>
         
         <div id="upload-form">
             <div class="form-group">
@@ -232,13 +210,17 @@
         <div id="result-container" class="hidden">
             <div class="status-message success-message">PDF processed successfully!</div>
             
-            <div class="button-group">
-                <a id="download-link" class="download-link" download="processed-pdf.pdf">Download Processed PDF</a>
-                <button id="reset-button" class="secondary-button">Process Another PDF</button>
+            <div id="results-list" class="results-list">
+                <h3>Pages with Matches:</h3>
+                <div id="pages-container"></div>
             </div>
             
-            <div class="pdf-preview">
-                <iframe id="pdf-preview" title="Processed PDF Preview"></iframe>
+            <div class="info-box">
+                Note: This tool identifies pages containing your search terms. To create a filtered PDF with only these pages, you'll need to use a PDF editor with your list of page numbers.
+            </div>
+            
+            <div class="button-group">
+                <button id="reset-button">Process Another PDF</button>
             </div>
         </div>
         
@@ -261,8 +243,7 @@
         const progressFill = document.getElementById('progress-fill');
         const statusMessage = document.getElementById('status-message');
         const resultContainer = document.getElementById('result-container');
-        const downloadLink = document.getElementById('download-link');
-        const pdfPreview = document.getElementById('pdf-preview');
+        const pagesContainer = document.getElementById('pages-container');
         const resetButton = document.getElementById('reset-button');
         const uploadForm = document.getElementById('upload-form');
         
@@ -321,17 +302,17 @@
                 // Process the PDF
                 updateProgressText('Reading PDF file...');
                 
-                // Use a more reliable approach for reading the file
-                const fileData = await readFileAsArrayBuffer(selectedFile);
+                // Read file as array buffer
+                const arrayBuffer = await readFileAsArrayBuffer(selectedFile);
                 
-                // Convert ArrayBuffer to Uint8Array to prevent "detached ArrayBuffer" issues
-                const fileBytes = new Uint8Array(fileData);
+                // Load PDF document
+                updateProgressText('Loading PDF document...');
+                const pdfDoc = await pdfjsLib.getDocument(new Uint8Array(arrayBuffer)).promise;
+                const totalPages = pdfDoc.numPages;
                 
-                updateProgressText('Parsing PDF content...');
-                const pdf = await pdfjsLib.getDocument({ data: fileBytes }).promise;
-                const totalPages = pdf.numPages;
+                updateProgressText(`PDF loaded. Total pages: ${totalPages}`);
                 
-                // Words to search for
+                // Define search terms based on filter
                 const searchTerms = [];
                 if (filterOption === 'both' || filterOption === 'band') {
                     searchTerms.push('BAND');
@@ -340,67 +321,61 @@
                     searchTerms.push('ORCHESTRA');
                 }
                 
-                // Find pages that contain the search terms
-                updateProgressText('Scanning pages for matching terms...');
-                const pagesToKeep = [];
+                // Find pages containing search terms
+                const matchingPages = [];
                 
                 for (let i = 1; i <= totalPages; i++) {
-                    setProgress(Math.floor((i / totalPages) * 50));
+                    setProgress(Math.floor((i / totalPages) * 100));
                     updateProgressText(`Scanning page ${i} of ${totalPages}...`);
                     
-                    const page = await pdf.getPage(i);
+                    const page = await pdfDoc.getPage(i);
                     const textContent = await page.getTextContent();
-                    const pageText = textContent.items.map(item => item.str.toUpperCase()).join(' ');
+                    const pageText = textContent.items.map(item => item.str).join(' ');
                     
-                    let shouldKeepPage = false;
-                    
+                    // Check if page contains any of the search terms
+                    const matches = [];
                     for (const term of searchTerms) {
-                        if (pageText.includes(term)) {
-                            shouldKeepPage = true;
-                            break;
+                        if (pageText.toUpperCase().includes(term)) {
+                            matches.push(term);
                         }
                     }
                     
-                    if (shouldKeepPage) {
-                        pagesToKeep.push(i - 1); // pdf-lib uses 0-based indexing
+                    if (matches.length > 0) {
+                        matchingPages.push({
+                            pageNumber: i,
+                            matches: matches
+                        });
                     }
                 }
                 
-                if (pagesToKeep.length === 0) {
-                    throw new Error('No pages match the selected filter criteria.');
+                // Display results
+                if (matchingPages.length === 0) {
+                    showStatusMessage('No pages found containing the selected terms.', 'error');
+                    processButton.disabled = false;
+                    progressContainer.classList.add('hidden');
+                    return;
                 }
-                
-                // Create a new PDF with only the kept pages
-                updateProgressText('Creating filtered PDF...');
-                const { PDFDocument } = PDFLib;
-                
-                // Load the PDF document using the Uint8Array instead of ArrayBuffer
-                const pdfDoc = await PDFDocument.load(fileBytes);
-                const filteredPdfDoc = await PDFDocument.create();
-                
-                updateProgressText('Copying matching pages...');
-                const copiedPages = await filteredPdfDoc.copyPages(pdfDoc, pagesToKeep);
-                
-                for (let i = 0; i < copiedPages.length; i++) {
-                    setProgress(50 + Math.floor((i / copiedPages.length) * 50));
-                    updateProgressText(`Processing page ${i + 1} of ${copiedPages.length}...`);
-                    filteredPdfDoc.addPage(copiedPages[i]);
-                }
-                
-                // Save the processed PDF
-                updateProgressText('Finalizing PDF...');
-                const processedPdfBytes = await filteredPdfDoc.save();
-                const blob = new Blob([processedPdfBytes], { type: 'application/pdf' });
-                const url = URL.createObjectURL(blob);
                 
                 // Show results
-                downloadLink.href = url;
-                pdfPreview.src = url;
+                pagesContainer.innerHTML = '';
+                matchingPages.forEach(page => {
+                    const pageItem = document.createElement('div');
+                    pageItem.className = 'page-item';
+                    
+                    const matchText = page.matches.map(match => 
+                        `<span class="match-highlight">${match}</span>`
+                    ).join(', ');
+                    
+                    pageItem.innerHTML = `
+                        <div><span class="page-number">Page ${page.pageNumber}</span> contains: ${matchText}</div>
+                    `;
+                    
+                    pagesContainer.appendChild(pageItem);
+                });
+                
+                // Hide form, show results
                 uploadForm.classList.add('hidden');
                 resultContainer.classList.remove('hidden');
-                
-                // Update status
-                updateProgressText('Processing complete!');
                 
             } catch (error) {
                 console.error('Error processing PDF:', error);
@@ -413,8 +388,8 @@
         function readFileAsArrayBuffer(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
-                reader.onload = (e) => resolve(e.target.result);
-                reader.onerror = (error) => reject(new Error('Error reading file: ' + error));
+                reader.onload = e => resolve(e.target.result);
+                reader.onerror = e => reject(new Error('Error reading file'));
                 reader.readAsArrayBuffer(file);
             });
         }
