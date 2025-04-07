@@ -1,471 +1,517 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDF Processor for Band/Orchestra</title>
-    <!-- Load PDF.js and PDF-lib libraries -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
-    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            margin: 0;
-            padding: 20px;
-            background-color: #f5f5f5;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        h1 {
-            text-align: center;
-            margin-bottom: 20px;
-            color: #2c3e50;
-        }
-        .subtitle {
-            text-align: center;
-            margin-bottom: 30px;
-            color: #7f8c8d;
-            font-size: 16px;
-        }
-        .form-group {
-            margin-bottom: 20px;
-        }
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-        }
-        select, input[type="file"] {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 16px;
-        }
-        select {
-            background-color: white;
-        }
-        .file-info {
-            margin-top: 10px;
-            font-size: 14px;
-            color: #666;
-        }
-        button {
-            display: block;
-            width: 100%;
-            padding: 12px;
-            background-color: #4285f4;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        button:hover {
-            background-color: #2b68c7;
-        }
-        button:disabled {
-            background-color: #a5a5a5;
-            cursor: not-allowed;
-        }
-        .progress-container {
-            margin-top: 20px;
-        }
-        .progress-text {
-            margin-bottom: 8px;
-            font-size: 14px;
-        }
-        .progress-bar {
-            height: 10px;
-            background-color: #e0e0e0;
-            border-radius: 5px;
-            overflow: hidden;
-        }
-        .progress-fill {
-            height: 100%;
-            background-color: #4285f4;
-            width: 0%;
-            transition: width 0.3s;
-        }
-        .status-message {
-            margin-top: 15px;
-            padding: 10px;
-            border-radius: 4px;
-            font-size: 14px;
-        }
-        .success-message {
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        .error-message {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-        .info-message {
-            background-color: #e2f3fd;
-            color: #0c5460;
-            border: 1px solid #bee5eb;
-        }
-        .button-group {
-            display: flex;
-            gap: 10px;
-            margin-top: 20px;
-        }
-        .button-group button, .button-group a {
-            flex: 1;
-        }
-        .download-link {
-            display: block;
-            text-align: center;
-            padding: 12px;
-            background-color: #4caf50;
-            color: white;
-            border-radius: 4px;
-            font-size: 16px;
-            font-weight: 600;
-            text-decoration: none;
-            transition: background-color 0.3s;
-        }
-        .download-link:hover {
-            background-color: #388e3c;
-        }
-        .pdf-preview {
-            margin-top: 20px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            overflow: hidden;
-            height: 500px;
-        }
-        iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-        }
-        .secondary-button {
-            background-color: white;
-            color: #4285f4;
-            border: 1px solid #4285f4;
-        }
-        .secondary-button:hover {
-            background-color: #f5f5f5;
-        }
-        .instructions {
-            margin-bottom: 20px;
-            padding: 15px;
-            background-color: #f8f9fa;
-            border-left: 4px solid #4285f4;
-            border-radius: 0 4px 4px 0;
-        }
-        .instructions h3 {
-            margin-top: 0;
-            color: #4285f4;
-        }
-        .instructions ul {
-            margin-bottom: 0;
-        }
-        .hidden {
-            display: none;
-        }
-        footer {
-            text-align: center;
-            margin-top: 30px;
-            font-size: 14px;
-            color: #7f8c8d;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDF Processor for Band/Orchestra</title>
+  <!-- PDF.js library for reading PDF text -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js"></script>
+  <!-- pdf-lib library for building/highlighting PDF -->
+  <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      margin: 0;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 10px;
+      color: #2c3e50;
+    }
+    .version {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #7f8c8d;
+      font-size: 14px;
+    }
+    .subtitle {
+      text-align: center;
+      margin-bottom: 30px;
+      color: #7f8c8d;
+      font-size: 16px;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+    select, input[type="file"] {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 16px;
+      background-color: white;
+    }
+    .file-info {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #666;
+    }
+    button {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      background-color: #4285f4;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #2b68c7;
+    }
+    button:disabled {
+      background-color: #a5a5a5;
+      cursor: not-allowed;
+    }
+    .progress-container {
+      margin-top: 20px;
+    }
+    .progress-text {
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+    .progress-bar {
+      height: 10px;
+      background-color: #e0e0e0;
+      border-radius: 5px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background-color: #4285f4;
+      width: 0%;
+      transition: width 0.3s;
+    }
+    .status-message {
+      margin-top: 15px;
+      padding: 10px;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .success-message {
+      background-color: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    .error-message {
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    .info-message {
+      background-color: #e2f3fd;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+    .results-list {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: #f8f9fa;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+    }
+    .results-list h3 {
+      margin-top: 0;
+      color: #4285f4;
+    }
+    .page-item {
+      margin-bottom: 10px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #eee;
+    }
+    .page-item:last-child {
+      margin-bottom: 0;
+      padding-bottom: 0;
+      border-bottom: none;
+    }
+    .page-number {
+      font-weight: bold;
+    }
+    .match-highlight {
+      background-color: #ffeb3b;
+      padding: 2px 4px;
+      border-radius: 2px;
+    }
+    .hidden {
+      display: none;
+    }
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .button-group button, .button-group a {
+      flex: 1;
+    }
+    .download-link {
+      display: block;
+      text-align: center;
+      padding: 12px;
+      background-color: #4caf50;
+      color: white;
+      border-radius: 4px;
+      font-size: 16px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: background-color 0.3s;
+    }
+    .download-link:hover {
+      background-color: #388e3c;
+    }
+    .pdf-preview {
+      margin-top: 20px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      overflow: hidden;
+      height: 500px;
+    }
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+    .secondary-button {
+      background-color: white;
+      color: #4285f4;
+      border: 1px solid #4285f4;
+    }
+    .secondary-button:hover {
+      background-color: #f5f5f5;
+    }
+    footer {
+      text-align: center;
+      margin-top: 30px;
+      font-size: 14px;
+      color: #7f8c8d;
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>PDF Processor for Band/Orchestra</h1>
-        <p class="subtitle">Filter and highlight "BAND" and "ORCHESTRA" in your PDF documents</p>
-        
-        <div class="instructions">
-            <h3>How It Works</h3>
-            <ul>
-                <li>Upload your PDF file</li>
-                <li>Select whether to keep pages containing "BAND", "ORCHESTRA", or both</li>
-                <li>Process your PDF</li>
-                <li>Download the filtered PDF with highlighted terms</li>
-            </ul>
-        </div>
-        
-        <div id="upload-form">
-            <div class="form-group">
-                <label for="file-upload">Upload PDF File</label>
-                <input type="file" id="file-upload" accept=".pdf">
-                <div id="file-info" class="file-info"></div>
-            </div>
-            
-            <div class="form-group">
-                <label for="filter-type">Filter Type</label>
-                <select id="filter-type">
-                    <option value="both">Both Band and Orchestra</option>
-                    <option value="band">Only Band</option>
-                    <option value="orchestra">Only Orchestra</option>
-                </select>
-            </div>
-            
-            <button id="process-button" disabled>Process PDF</button>
-            
-            <div id="progress-container" class="progress-container hidden">
-                <p id="progress-text" class="progress-text">Processing PDF...</p>
-                <div class="progress-bar">
-                    <div id="progress-fill" class="progress-fill"></div>
-                </div>
-            </div>
-            
-            <div id="status-message" class="status-message hidden"></div>
-        </div>
-        
-        <div id="result-container" class="hidden">
-            <div class="status-message success-message">PDF processed successfully!</div>
-            
-            <div class="button-group">
-                <a id="download-link" class="download-link" download="processed-pdf.pdf">Download Processed PDF</a>
-                <button id="reset-button" class="secondary-button">Process Another PDF</button>
-            </div>
-            
-            <div class="pdf-preview">
-                <iframe id="pdf-preview" title="Processed PDF Preview"></iframe>
-            </div>
-        </div>
-        
-        <footer>
-            <p>PDF processing is done entirely in your browser. No files are uploaded to any server.</p>
-        </footer>
+<div class="container">
+  <h1>PDF Processor for Band/Orchestra</h1>
+  <p class="version">Version 3.0 - With Page Extraction & Highlighting</p>
+  <p class="subtitle">Find pages containing "BAND" and/or "ORCHESTRA", highlight them, and remove other pages.</p>
+
+  <div id="upload-form">
+    <div class="form-group">
+      <label for="file-upload">Upload PDF File</label>
+      <input type="file" id="file-upload" accept=".pdf">
+      <div id="file-info" class="file-info"></div>
     </div>
 
-    <script>
-        // Initialize PDF.js
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
-        
-        // DOM elements
-        const fileUpload = document.getElementById('file-upload');
-        const fileInfo = document.getElementById('file-info');
-        const filterType = document.getElementById('filter-type');
-        const processButton = document.getElementById('process-button');
-        const progressContainer = document.getElementById('progress-container');
-        const progressText = document.getElementById('progress-text');
-        const progressFill = document.getElementById('progress-fill');
-        const statusMessage = document.getElementById('status-message');
-        const resultContainer = document.getElementById('result-container');
-        const downloadLink = document.getElementById('download-link');
-        const pdfPreview = document.getElementById('pdf-preview');
-        const resetButton = document.getElementById('reset-button');
-        const uploadForm = document.getElementById('upload-form');
-        
-        // Variables
-        let selectedFile = null;
-        let pdfArrayBuffer = null;
-        
-        // Event listeners
-        fileUpload.addEventListener('change', handleFileSelection);
-        processButton.addEventListener('click', processPDF);
-        resetButton.addEventListener('click', resetForm);
-        
-        // Functions
-        async function handleFileSelection(e) {
-            const file = e.target.files[0];
-            if (file && file.type === 'application/pdf') {
-                selectedFile = file;
-                pdfArrayBuffer = await file.arrayBuffer();
-                fileInfo.textContent = `Selected file: ${file.name}`;
-                processButton.disabled = false;
-                hideStatusMessage();
-            } else if (file) {
-                showStatusMessage('Please select a valid PDF file.', 'error');
-                resetFileInput();
+    <div class="form-group">
+      <label for="filter-type">Filter Type</label>
+      <select id="filter-type">
+        <option value="both">Both Band and Orchestra</option>
+        <option value="band">Only Band</option>
+        <option value="orchestra">Only Orchestra</option>
+      </select>
+    </div>
+
+    <button id="process-button" disabled>Process PDF</button>
+
+    <div id="progress-container" class="progress-container hidden">
+      <p id="progress-text" class="progress-text">Processing PDF...</p>
+      <div class="progress-bar">
+        <div id="progress-fill" class="progress-fill"></div>
+      </div>
+    </div>
+
+    <div id="status-message" class="status-message hidden"></div>
+  </div>
+
+  <div id="result-container" class="hidden">
+    <div class="status-message success-message">PDF processed successfully!</div>
+    <div id="results-list" class="results-list">
+      <h3>Pages with Matches:</h3>
+      <div id="pages-container"></div>
+    </div>
+    <div class="button-group">
+      <a id="download-report" class="download-link" download="pdf-report.pdf">Download New PDF</a>
+      <button id="reset-button" class="secondary-button">Process Another PDF</button>
+    </div>
+    <div class="pdf-preview">
+      <iframe id="pdf-preview" title="PDF Report Preview"></iframe>
+    </div>
+  </div>
+
+  <footer>
+    <p>PDF processing is done entirely in your browser. No files are uploaded to any server.</p>
+  </footer>
+</div>
+
+<script>
+  // PDF.js worker
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+
+  // DOM elements
+  const fileUpload        = document.getElementById('file-upload');
+  const fileInfo          = document.getElementById('file-info');
+  const filterType        = document.getElementById('filter-type');
+  const processButton     = document.getElementById('process-button');
+  const progressContainer = document.getElementById('progress-container');
+  const progressText      = document.getElementById('progress-text');
+  const progressFill      = document.getElementById('progress-fill');
+  const statusMessage     = document.getElementById('status-message');
+  const resultContainer   = document.getElementById('result-container');
+  const pagesContainer    = document.getElementById('pages-container');
+  const downloadReport    = document.getElementById('download-report');
+  const pdfPreview        = document.getElementById('pdf-preview');
+  const resetButton       = document.getElementById('reset-button');
+  const uploadForm        = document.getElementById('upload-form');
+
+  let selectedFile = null;
+  let reportPdfUrl = null;
+
+  fileUpload.addEventListener('change', handleFileSelection);
+  processButton.addEventListener('click', processPDF);
+  resetButton.addEventListener('click', resetForm);
+
+  function handleFileSelection(e) {
+    const file = e.target.files[0];
+    if (file && file.type === 'application/pdf') {
+      selectedFile = file;
+      fileInfo.textContent = `Selected file: ${file.name}`;
+      processButton.disabled = false;
+      hideStatusMessage();
+    } else {
+      showStatusMessage('Please select a valid PDF file.', 'error');
+      resetFileInput();
+    }
+  }
+
+  function resetFileInput() {
+    fileUpload.value = '';
+    fileInfo.textContent = '';
+    selectedFile = null;
+    processButton.disabled = true;
+  }
+
+  function showStatusMessage(message, type = 'info') {
+    statusMessage.textContent = message;
+    statusMessage.className = `status-message ${type}-message`;
+    statusMessage.classList.remove('hidden');
+  }
+
+  function hideStatusMessage() {
+    statusMessage.classList.add('hidden');
+  }
+
+  function setProgress(value) {
+    progressFill.style.width = `${value}%`;
+  }
+
+  function updateProgressText(text) {
+    progressText.textContent = text;
+  }
+
+  async function processPDF() {
+    if (!selectedFile) return;
+
+    try {
+      processButton.disabled = true;
+      progressContainer.classList.remove('hidden');
+      hideStatusMessage();
+      setProgress(0);
+
+      const filterOption = filterType.value; // "both", "band", or "orchestra"
+      const searchTerms = [];
+      if (filterOption === 'both' || filterOption === 'band') {
+        searchTerms.push('BAND');
+      }
+      if (filterOption === 'both' || filterOption === 'orchestra') {
+        searchTerms.push('ORCHESTRA');
+      }
+
+      updateProgressText('Reading PDF file...');
+      const fileData = await readFileAsUint8Array(selectedFile);
+
+      updateProgressText('Loading PDF for analysis...');
+      const pdfDocument = await pdfjsLib.getDocument(fileData).promise;
+      const totalPages  = pdfDocument.numPages;
+
+      updateProgressText(`PDF loaded. Total pages: ${totalPages}`);
+      const matchingPages = [];
+
+      // We'll also load the PDF once with pdf-lib so we can copy pages & highlight.
+      const originalPdfLibDoc = await PDFLib.PDFDocument.load(fileData);
+      // New PDF to store the filtered pages + highlights
+      const newPdfDoc = await PDFLib.PDFDocument.create();
+
+      for (let i = 1; i <= totalPages; i++) {
+        setProgress(Math.floor((i / totalPages) * 100));
+        updateProgressText(`Analyzing page ${i} of ${totalPages}...`);
+
+        const page = await pdfDocument.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map(it => it.str.toUpperCase()).join(' ');
+
+        // Check if it matches the search terms
+        let pageHasTerm = false;
+        for (const term of searchTerms) {
+          if (pageText.includes(term)) {
+            pageHasTerm = true;
+            break;
+          }
+        }
+
+        if (pageHasTerm) {
+          // Record that this page matched
+          const foundMatches = [];
+          // We'll keep track of chunk positions for highlight
+          textContent.items.forEach(item => {
+            const chunkText = item.str;
+            const chunkTextUpper = chunkText.toUpperCase();
+
+            // If chunk doesn't contain any search terms, skip
+            let hasTerm = false;
+            for (const term of searchTerms) {
+              if (chunkTextUpper.includes(term)) {
+                hasTerm = true;
+                break;
+              }
             }
+            if (!hasTerm) return;
+
+            // We'll highlight the entire chunk for any matched term.
+            // If you want to highlight only the exact “BAND” substring,
+            // you'd do more granular bounding with chunkText.indexOf(...).
+            const transform = item.transform; // [scaleX, skewX, skewY, scaleY, offsetX, offsetY]
+            const xOffset   = transform[4];
+            const yOffset   = transform[5];
+            const fontHeight= Math.abs(transform[3]);
+            // PDF.js doesn’t always provide chunk width, but item.width is sometimes available in newer versions.
+            // If not, approximate with: chunkWidth = Math.abs(transform[0]) * chunkText.length * (some factor).
+            const approximateWidth = item.width || (Math.abs(transform[0]) * chunkText.length * 0.5);
+
+            foundMatches.push({
+              x: xOffset,
+              y: yOffset,
+              width: approximateWidth,
+              height: fontHeight
+            });
+          });
+
+          matchingPages.push(i);
+
+          // Copy page from original PDF into new PDF
+          const [copiedPage] = await newPdfDoc.copyPages(originalPdfLibDoc, [i - 1]);
+          newPdfDoc.addPage(copiedPage);
+
+          // Now highlight the found matches on that copied page
+          drawRectanglesForMatches(copiedPage, foundMatches);
         }
-        
-        function resetFileInput() {
-            fileUpload.value = '';
-            fileInfo.textContent = '';
-            selectedFile = null;
-            pdfArrayBuffer = null;
-            processButton.disabled = true;
-        }
-        
-        function showStatusMessage(message, type = 'info') {
-            statusMessage.textContent = message;
-            statusMessage.className = `status-message ${type}-message`;
-            statusMessage.classList.remove('hidden');
-        }
-        
-        function hideStatusMessage() {
-            statusMessage.classList.add('hidden');
-        }
-        
-        function setProgress(value) {
-            progressFill.style.width = `${value}%`;
-        }
-        
-        function updateProgressText(text) {
-            progressText.textContent = text;
-        }
-        
-        async function processPDF() {
-            if (!pdfArrayBuffer) return;
-            
-            try {
-                // Show progress
-                processButton.disabled = true;
-                progressContainer.classList.remove('hidden');
-                hideStatusMessage();
-                setProgress(0);
-                
-                // Get filter option
-                const filterOption = filterType.value;
-                
-                updateProgressText('Processing PDF...');
-                
-                // Words to search for
-                const searchTerms = [];
-                if (filterOption === 'both' || filterOption === 'band') {
-                    searchTerms.push('BAND');
-                }
-                if (filterOption === 'both' || filterOption === 'orchestra') {
-                    searchTerms.push('ORCHESTRA');
-                }
-                
-                // 1) Use PDF.js to load the PDF for text analysis
-                updateProgressText('Analyzing PDF content...');
-                const pdfJsDoc = await pdfjsLib.getDocument({ data: pdfArrayBuffer }).promise;
-                const totalPages = pdfJsDoc.numPages;
-                
-                // 2) Create a new PDF-lib doc where we'll copy pages + highlight
-                updateProgressText('Creating new document...');
-                const { PDFDocument, rgb } = PDFLib;
-                const pdfLibDoc = await PDFDocument.create();
-                
-                // 3) Load original PDF with pdf-lib once (for performance)
-                const originalPdfDoc = await PDFDocument.load(pdfArrayBuffer);
-                
-                let processedPages = 0;
-                let pagesFound = 0;
-                
-                for (let pageIndex = 1; pageIndex <= totalPages; pageIndex++) {
-                    setProgress(Math.floor((pageIndex / totalPages) * 100));
-                    updateProgressText(`Processing page ${pageIndex} of ${totalPages}...`);
-                    
-                    const page = await pdfJsDoc.getPage(pageIndex);
-                    const textContent = await page.getTextContent();
-                    
-                    // Collect text positions for highlighting
-                    let foundMatchesPositions = [];
-                    let shouldKeepPage = false;
-                    
-                    textContent.items.forEach(item => {
-                        const text = item.str;
-                        const tx = item.transform;
-                        const textUpper = text.toUpperCase();
-                        
-                        searchTerms.forEach(term => {
-                            if (textUpper.includes(term)) {
-                                shouldKeepPage = true;
-                                
-                                // For each occurrence, note approximate bounding box
-                                let startIndex = 0;
-                                let matchPos;
-                                while ((matchPos = textUpper.indexOf(term, startIndex)) !== -1) {
-                                    // Approximate measure of the text
-                                    const x = tx[4] + (matchPos * (tx[0] / text.length));
-                                    const y = tx[5];
-                                    const width = term.length * (tx[0] / text.length);
-                                    const height = tx[3];
-                                    
-                                    foundMatchesPositions.push({ x, y, width, height, term });
-                                    startIndex = matchPos + term.length;
-                                }
-                            }
-                        });
-                    });
-                    
-                    // If this page has matches, copy it and add highlights
-                    if (shouldKeepPage) {
-                        // Copy the page from the original document
-                        const [copiedPage] = await pdfLibDoc.copyPages(originalPdfDoc, [pageIndex - 1]);
-                        pdfLibDoc.addPage(copiedPage);
-                        pagesFound++;
-                        
-                        // Add highlights to the page
-                        const { width, height } = copiedPage.getSize();
-                        foundMatchesPositions.forEach(pos => {
-                            // Convert PDF.js's top-left origin to PDF-lib's bottom-left origin
-                            copiedPage.drawRectangle({
-                                x: pos.x,
-                                y: height - pos.y,
-                                width: pos.width,
-                                height: pos.height,
-                                color: rgb(1, 1, 0), // Yellow
-                                opacity: 0.3,
-                            });
-                        });
-                    }
-                    
-                    processedPages++;
-                }
-                
-                // Check if we found any pages
-                if (pagesFound === 0) {
-                    showStatusMessage('No pages found containing the selected term(s).', 'error');
-                    processButton.disabled = false;
-                    progressContainer.classList.add('hidden');
-                    return;
-                }
-                
-                // Finalize PDF
-                updateProgressText('Finalizing PDF...');
-                const processedPdfBytes = await pdfLibDoc.save();
-                const blob = new Blob([processedPdfBytes], { type: 'application/pdf' });
-                const url = URL.createObjectURL(blob);
-                
-                // Show results
-                downloadLink.href = url;
-                downloadLink.download = `filtered_${selectedFile.name}`;
-                pdfPreview.src = url;
-                uploadForm.classList.add('hidden');
-                resultContainer.classList.remove('hidden');
-                
-                // Update status
-                updateProgressText(`Processing complete! Found ${pagesFound} matching pages.`);
-                setProgress(100);
-                
-            } catch (error) {
-                console.error('Error processing PDF:', error);
-                showStatusMessage(`Error processing PDF: ${error.message}`, 'error');
-                processButton.disabled = false;
-                progressContainer.classList.add('hidden');
-            }
-        }
-        
-        function resetForm() {
-            fileUpload.value = '';
-            fileInfo.textContent = '';
-            processButton.disabled = true;
-            progressContainer.classList.add('hidden');
-            resultContainer.classList.add('hidden');
-            uploadForm.classList.remove('hidden');
-            hideStatusMessage();
-            selectedFile = null;
-            pdfArrayBuffer = null;
-            
-            // Reset progress bar
-            setProgress(0);
-            updateProgressText('Processing PDF...');
-        }
-    </script>
+      }
+
+      // If none matched, show message
+      if (matchingPages.length === 0) {
+        progressContainer.classList.add('hidden');
+        showStatusMessage('No pages found containing the selected terms.', 'error');
+        processButton.disabled = false;
+        return;
+      }
+
+      // Build result list in the UI
+      pagesContainer.innerHTML = '';
+      matchingPages.forEach(pg => {
+        const pageItem = document.createElement('div');
+        pageItem.className = 'page-item';
+        pageItem.innerHTML = `<div><span class="page-number">Page ${pg}</span> 
+                              contains <span class="match-highlight">${searchTerms.join(' / ')}</span></div>`;
+        pagesContainer.appendChild(pageItem);
+      });
+
+      // Save new PDF
+      updateProgressText('Generating new PDF with highlights...');
+      const newPdfBytes = await newPdfDoc.save();
+      const newPdfBlob  = new Blob([newPdfBytes], { type: 'application/pdf' });
+      const newPdfUrl   = URL.createObjectURL(newPdfBlob);
+
+      // Set download link & preview
+      downloadReport.href = newPdfUrl;
+      pdfPreview.src      = newPdfUrl;
+      reportPdfUrl        = newPdfUrl;  // keep track to revoke if reset
+
+      // Show final results
+      progressContainer.classList.add('hidden');
+      uploadForm.classList.add('hidden');
+      resultContainer.classList.remove('hidden');
+
+    } catch (err) {
+      console.error('Error processing PDF:', err);
+      showStatusMessage(`Error processing PDF: ${err.message}`, 'error');
+      processButton.disabled = false;
+      progressContainer.classList.add('hidden');
+    }
+  }
+
+  // Draw yellow rectangles for each text chunk containing a match.
+  // Note: PDF-lib has (0,0) at bottom-left, so we flip y with respect to the page height.
+  function drawRectanglesForMatches(copiedPage, matches) {
+    const pageHeight = copiedPage.getSize().height;
+
+    matches.forEach(m => {
+      const highlightY = pageHeight - m.y;  // Flip the Y
+      copiedPage.drawRectangle({
+        x: m.x,
+        // Shift it down by the chunk's height so it aligns behind the text
+        y: highlightY - m.height,
+        width: m.width,
+        height: m.height,
+        color: PDFLib.rgb(1, 1, 0), // bright yellow
+        opacity: 0.5
+      });
+    });
+  }
+
+  function readFileAsUint8Array(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = e => resolve(new Uint8Array(e.target.result));
+      reader.onerror = err => reject(err);
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
+  function resetForm() {
+    fileUpload.value = '';
+    fileInfo.textContent = '';
+    processButton.disabled = true;
+    progressContainer.classList.add('hidden');
+    resultContainer.classList.add('hidden');
+    uploadForm.classList.remove('hidden');
+    hideStatusMessage();
+    selectedFile = null;
+    setProgress(0);
+    updateProgressText('Processing PDF...');
+    pdfPreview.src = '';
+
+    if (reportPdfUrl) {
+      URL.revokeObjectURL(reportPdfUrl);
+      reportPdfUrl = null;
+    }
+  }
+</script>
 </body>
 </html>
