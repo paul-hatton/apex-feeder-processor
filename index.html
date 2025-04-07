@@ -7,6 +7,7 @@
     <!-- Load libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -26,8 +27,14 @@
         }
         h1 {
             text-align: center;
-            margin-bottom: 20px;
+            margin-bottom: 10px;
             color: #2c3e50;
+        }
+        .version {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #7f8c8d;
+            font-size: 14px;
         }
         .subtitle {
             text-align: center;
@@ -199,12 +206,34 @@
         .secondary-button:hover {
             background-color: #f5f5f5;
         }
+        .tabs {
+            display: flex;
+            margin-top: 20px;
+            border-bottom: 1px solid #ddd;
+        }
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .tab.active {
+            border-bottom: 3px solid #4285f4;
+            color: #4285f4;
+        }
+        .tab-content {
+            display: none;
+            padding-top: 20px;
+        }
+        .tab-content.active {
+            display: block;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>PDF Processor for Band/Orchestra</h1>
-        <p class="subtitle">Filter and identify pages containing "BAND" and "ORCHESTRA"</p>
+        <p class="version">Version 1.3 - Page Extraction & Highlighting</p>
+        <p class="subtitle">Filter and extract pages containing "BAND" and "ORCHESTRA"</p>
         
         <div id="upload-form">
             <div class="form-group">
@@ -237,18 +266,35 @@
         <div id="result-container" class="hidden">
             <div class="status-message success-message">PDF processed successfully!</div>
             
-            <div id="results-list" class="results-list">
-                <h3>Pages with Matches:</h3>
-                <div id="pages-container"></div>
+            <div class="tabs">
+                <div class="tab active" data-tab="results">Results</div>
+                <div class="tab" data-tab="preview">Preview</div>
             </div>
             
-            <div class="button-group">
-                <a id="download-link" class="download-link" download="filtered-pdf.pdf">Download PDF Report</a>
-                <button id="reset-button" class="secondary-button">Process Another PDF</button>
+            <div id="results-tab" class="tab-content active">
+                <div id="results-list" class="results-list">
+                    <h3>Pages with Matches:</h3>
+                    <div id="pages-container"></div>
+                </div>
+                
+                <div class="button-group">
+                    <a id="download-filtered-pdf" class="download-link" download="filtered-pdf.pdf">Download Filtered PDF</a>
+                    <a id="download-report" class="download-link" style="background-color: #ff9800;" download="pdf-report.pdf">Download Report</a>
+                </div>
+                
+                <div class="button-group" style="margin-top: 10px;">
+                    <button id="reset-button" class="secondary-button">Process Another PDF</button>
+                </div>
             </div>
             
-            <div class="pdf-preview">
-                <iframe id="pdf-preview" title="Processed PDF Preview"></iframe>
+            <div id="preview-tab" class="tab-content">
+                <div class="pdf-preview">
+                    <iframe id="pdf-preview" title="Processed PDF Preview"></iframe>
+                </div>
+                
+                <div class="button-group" style="margin-top: 10px;">
+                    <button id="switch-preview" class="secondary-button">Switch Preview</button>
+                </div>
             </div>
         </div>
         
@@ -272,18 +318,46 @@
         const statusMessage = document.getElementById('status-message');
         const resultContainer = document.getElementById('result-container');
         const pagesContainer = document.getElementById('pages-container');
-        const downloadLink = document.getElementById('download-link');
+        const downloadFilteredPDF = document.getElementById('download-filtered-pdf');
+        const downloadReport = document.getElementById('download-report');
         const pdfPreview = document.getElementById('pdf-preview');
         const resetButton = document.getElementById('reset-button');
         const uploadForm = document.getElementById('upload-form');
+        const switchPreview = document.getElementById('switch-preview');
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
         
         // Variables
         let selectedFile = null;
+        let filteredPdfUrl = null;
+        let reportPdfUrl = null;
+        let currentPreview = 'filtered';
         
         // Event listeners
         fileUpload.addEventListener('change', handleFileSelection);
         processButton.addEventListener('click', processPDF);
         resetButton.addEventListener('click', resetForm);
+        switchPreview.addEventListener('click', togglePreview);
+        
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Remove active class from all tabs
+                tabs.forEach(t => t.classList.remove('active'));
+                tabContents.forEach(tc => tc.classList.remove('active'));
+                
+                // Add active class to clicked tab
+                tab.classList.add('active');
+                
+                // Show corresponding content
+                const tabId = tab.getAttribute('data-tab');
+                document.getElementById(`${tabId}-tab`).classList.add('active');
+                
+                // If preview tab is selected, make sure preview is set
+                if (tabId === 'preview' && pdfPreview.src === '') {
+                    pdfPreview.src = filteredPdfUrl;
+                }
+            });
+        });
         
         // Functions
         function handleFileSelection(e) {
@@ -316,6 +390,18 @@
             statusMessage.classList.add('hidden');
         }
         
+        function togglePreview() {
+            if (currentPreview === 'filtered') {
+                pdfPreview.src = reportPdfUrl;
+                switchPreview.textContent = 'Show Filtered PDF';
+                currentPreview = 'report';
+            } else {
+                pdfPreview.src = filteredPdfUrl;
+                switchPreview.textContent = 'Show Report';
+                currentPreview = 'filtered';
+            }
+        }
+        
         async function processPDF() {
             if (!selectedFile) return;
             
@@ -335,9 +421,12 @@
                 // Read file as array buffer
                 const arrayBuffer = await readFileAsArrayBuffer(selectedFile);
                 
+                // Make sure we have a clean Uint8Array to work with
+                const fileBytes = new Uint8Array(arrayBuffer);
+                
                 // Load PDF document
                 updateProgressText('Loading PDF document...');
-                const pdfDoc = await pdfjsLib.getDocument(new Uint8Array(arrayBuffer)).promise;
+                const pdfDoc = await pdfjsLib.getDocument(fileBytes).promise;
                 const totalPages = pdfDoc.numPages;
                 
                 updateProgressText(`PDF loaded. Total pages: ${totalPages}`);
@@ -355,7 +444,7 @@
                 const matchingPages = [];
                 
                 for (let i = 1; i <= totalPages; i++) {
-                    setProgress(Math.floor((i / totalPages) * 100));
+                    setProgress(Math.floor((i / totalPages) * 50));
                     updateProgressText(`Scanning page ${i} of ${totalPages}...`);
                     
                     const page = await pdfDoc.getPage(i);
@@ -403,13 +492,54 @@
                     pagesContainer.appendChild(pageItem);
                 });
                 
-                // Create a PDF report
-                updateProgressText('Creating PDF report...');
-                await createPDFReport(matchingPages, selectedFile.name);
+                // Create filtered PDF using PDF-lib
+                updateProgressText('Creating filtered PDF...');
                 
-                // Hide form, show results
-                uploadForm.classList.add('hidden');
-                resultContainer.classList.remove('hidden');
+                try {
+                    // Create a filtered PDF with only matching pages
+                    const { PDFDocument } = PDFLib;
+                    
+                    // Load the PDF document
+                    const pdfBytes = new Uint8Array(arrayBuffer);
+                    const pdfDoc = await PDFDocument.load(pdfBytes);
+                    
+                    // Create a new PDF document
+                    const newPdfDoc = await PDFDocument.create();
+                    
+                    // Get page indices (0-based)
+                    const pageIndices = matchingPages.map(page => page.pageNumber - 1);
+                    
+                    // Copy pages from the original document
+                    const copiedPages = await newPdfDoc.copyPages(pdfDoc, pageIndices);
+                    
+                    // Add pages to the new document
+                    copiedPages.forEach(page => {
+                        newPdfDoc.addPage(page);
+                    });
+                    
+                    // Save the new PDF
+                    const newPdfBytes = await newPdfDoc.save();
+                    const filteredPdfBlob = new Blob([newPdfBytes], { type: 'application/pdf' });
+                    filteredPdfUrl = URL.createObjectURL(filteredPdfBlob);
+                    
+                    // Set download link
+                    downloadFilteredPDF.href = filteredPdfUrl;
+                    
+                    // Create a report PDF
+                    updateProgressText('Creating PDF report...');
+                    reportPdfUrl = await createPDFReport(matchingPages, selectedFile.name);
+                    downloadReport.href = reportPdfUrl;
+                    
+                    // Set preview
+                    pdfPreview.src = filteredPdfUrl;
+                    
+                    // Hide form, show results
+                    uploadForm.classList.add('hidden');
+                    resultContainer.classList.remove('hidden');
+                } catch (error) {
+                    console.error('Error creating filtered PDF:', error);
+                    throw new Error('Failed to create filtered PDF: ' + error.message);
+                }
                 
             } catch (error) {
                 console.error('Error processing PDF:', error);
@@ -453,7 +583,7 @@
                     yPos += 10;
                 });
                 
-                // Add summary and instructions
+                // Add summary
                 yPos += 10;
                 if (yPos > 250) {
                     doc.addPage();
@@ -461,28 +591,18 @@
                 }
                 
                 doc.setFontSize(14);
-                doc.text('Instructions:', 20, yPos);
+                doc.text('Summary:', 20, yPos);
                 yPos += 10;
                 
-                const instructions = [
-                    '1. Open your original PDF in a PDF editor.',
-                    '2. Keep only the pages listed in this report.',
-                    '3. Save the result as a new PDF file.'
-                ];
-                
-                instructions.forEach(instruction => {
-                    doc.setFontSize(12);
-                    doc.text(instruction, 30, yPos);
-                    yPos += 10;
-                });
+                doc.setFontSize(12);
+                doc.text('The filtered PDF contains all pages from the original document that', 30, yPos);
+                yPos += 10;
+                doc.text(`include ${filterType.value === 'both' ? 'either "BAND" or "ORCHESTRA"' : 
+                            filterType.value === 'band' ? '"BAND"' : '"ORCHESTRA"'}.`, 30, yPos);
                 
                 // Save PDF
                 const pdfBlob = doc.output('blob');
                 const pdfUrl = URL.createObjectURL(pdfBlob);
-                
-                // Set download link and preview
-                downloadLink.href = pdfUrl;
-                pdfPreview.src = pdfUrl;
                 
                 return pdfUrl;
             } catch (error) {
@@ -521,6 +641,24 @@
             // Reset progress bar
             setProgress(0);
             updateProgressText('Processing PDF...');
+            
+            // Reset preview
+            pdfPreview.src = '';
+            currentPreview = 'filtered';
+            switchPreview.textContent = 'Show Report';
+            
+            // Reset tabs
+            tabs[0].click();
+            
+            // Clean up URLs to prevent memory leaks
+            if (filteredPdfUrl) {
+                URL.revokeObjectURL(filteredPdfUrl);
+                filteredPdfUrl = null;
+            }
+            if (reportPdfUrl) {
+                URL.revokeObjectURL(reportPdfUrl);
+                reportPdfUrl = null;
+            }
         }
     </script>
 </body>
