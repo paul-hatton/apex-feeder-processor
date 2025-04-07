@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PDF Processor for Band/Orchestra</title>
+  <title>Band/Orchestra Student Finder</title>
   <!-- PDF.js library for reading PDF text -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js"></script>
@@ -42,6 +42,25 @@
       margin-bottom: 30px;
       color: #7f8c8d;
       font-size: 16px;
+    }
+    .instruction-box {
+      background-color: #f9f9f9;
+      border: 1px solid #ddd;
+      border-left: 4px solid #4285f4;
+      border-radius: 4px;
+      padding: 15px;
+      margin-bottom: 25px;
+    }
+    .instruction-box h3 {
+      margin-top: 0;
+      color: #2c3e50;
+    }
+    .instruction-box ol {
+      margin-bottom: 0;
+      padding-left: 20px;
+    }
+    .instruction-box p {
+      margin-bottom: 10px;
     }
     .form-group {
       margin-bottom: 20px;
@@ -180,19 +199,33 @@
 </head>
 <body>
 <div class="container">
-  <h1>PDF Processor for Band/Orchestra</h1>
-  <p class="version">Version 4.0 - Page Extraction Only</p>
-  <p class="subtitle">Extract pages containing "BAND" or "ORCHESTRA" and automatically download the filtered PDF.</p>
+  <h1>Band/Orchestra Student Finder</h1>
+  <p class="version">Version 4.1</p>
+  <p class="subtitle">Find and contact potential band/orchestra students in your feeder form reports</p>
+
+  <div class="instruction-box">
+    <h3>How to Get Your Student Feeder Report</h3>
+    <p>Dear Teachers - Want to know all the kids coming to your school next year that are already in band or orchestra? Follow these steps:</p>
+    <ol>
+      <li>Go to <strong>sis.pgcps.org</strong> and click <strong>Apex Reports</strong> at the bottom <em>(only accessible at school or through the VPN)</em></li>
+      <li>Top Menu: <strong>School → Enrollment</strong></li>
+      <li>Click <strong>"Feeder Forms"</strong></li>
+      <li>Set <strong>"Receiving School"</strong> to your school (if shown)</li>
+      <li>Set <strong>"Current Grade Level"</strong> to <strong>"-- ALL --"</strong></li>
+      <li>Click <strong>"Generate Feeder Forms"</strong></li>
+    </ol>
+    <p>Once the PDF downloads, upload it here to automatically find all students currently in band or orchestra. The filtered PDF will include their parent contact information so you can reach out now!</p>
+  </div>
 
   <div id="upload-form">
     <div class="form-group">
-      <label for="file-upload">Upload PDF File</label>
+      <label for="file-upload">Upload Your Feeder Form PDF</label>
       <input type="file" id="file-upload" accept=".pdf">
       <div id="file-info" class="file-info"></div>
     </div>
 
     <div class="form-group">
-      <label for="filter-type">Filter Type</label>
+      <label for="filter-type">Find Students In:</label>
       <select id="filter-type">
         <option value="both">Both Band and Orchestra</option>
         <option value="band">Only Band</option>
@@ -200,7 +233,7 @@
       </select>
     </div>
 
-    <button id="process-button" disabled>Process PDF</button>
+    <button id="process-button" disabled>Find Students</button>
 
     <div id="progress-container" class="progress-container hidden">
       <p id="progress-text" class="progress-text">Processing PDF...</p>
@@ -215,8 +248,8 @@
   <div id="result-container" class="hidden">
     <div class="status-message success-message" id="summary-message"></div>
     <div class="button-group">
-      <a id="download-report" class="download-link" download="filtered.pdf">Download Filtered PDF</a>
-      <button id="reset-button" class="secondary-button">Process Another PDF</button>
+      <a id="download-report" class="download-link" download="band_orchestra_students.pdf">Download Student List</a>
+      <button id="reset-button" class="secondary-button">Process Another Report</button>
     </div>
     <div class="pdf-preview">
       <iframe id="pdf-preview" title="PDF Report Preview"></iframe>
@@ -323,7 +356,7 @@
 
       for (let i = 1; i <= totalPages; i++) {
         setProgress(Math.floor((i / totalPages) * 100));
-        updateProgressText(`Analyzing page ${i} of ${totalPages}...`);
+        updateProgressText(`Scanning page ${i} of ${totalPages}...`);
 
         const page     = await pdfJsDoc.getPage(i);
         const textCont = await page.getTextContent();
@@ -354,35 +387,35 @@
       // If no pages matched, show message
       if (newPdfDoc.getPageCount() === 0) {
         progressContainer.classList.add('hidden');
-        showStatusMessage('No pages found containing the selected terms.', 'error');
+        showStatusMessage('No students found with band or orchestra in their schedule.', 'error');
         processButton.disabled = false;
         return;
       }
 
-      updateProgressText('Generating filtered PDF...');
+      updateProgressText('Creating student list...');
       const newPdfBytes = await newPdfDoc.save();
       const newPdfBlob  = new Blob([newPdfBytes], { type: 'application/pdf' });
       const newPdfUrl   = URL.createObjectURL(newPdfBlob);
 
-      // Show a brief summary
-      // If user selected "both," let's show how many times Band/Orchestra occurred in the kept pages.
-      // If user selected "band" only, show bandCount. If "orchestra," show orchestraCount, etc.
+      // Show a brief summary with student count estimate
       let summary = '';
+      let studentEstimate = Math.max(bandCount, orchestraCount);
+      
       if (filterOption === 'both') {
-        summary = `Kept pages containing "BAND" or "ORCHESTRA". 
-          - BAND appeared in ${bandCount} kept page(s).
-          - ORCHESTRA appeared in ${orchestraCount} kept page(s).`;
+        summary = `Found approximately ${studentEstimate} students currently in band or orchestra.
+          - ${bandCount} student page(s) with "BAND" in their schedule
+          - ${orchestraCount} student page(s) with "ORCHESTRA" in their schedule`;
       } else if (filterOption === 'band') {
-        summary = `Kept pages containing "BAND". (Found "BAND" on ${bandCount} page(s).)`;
+        summary = `Found approximately ${bandCount} students currently in band.`;
       } else {
-        summary = `Kept pages containing "ORCHESTRA". (Found "ORCHESTRA" on ${orchestraCount} page(s).)`;
+        summary = `Found approximately ${orchestraCount} students currently in orchestra.`;
       }
 
       summaryMessage.textContent = summary;
 
       // Initiate automatic download
       downloadReport.href = newPdfUrl;
-      downloadReport.download = 'filtered.pdf';
+      downloadReport.download = 'band_orchestra_students.pdf';
       downloadReport.click(); // auto-download
 
       // Show final UI
