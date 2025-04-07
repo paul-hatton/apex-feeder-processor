@@ -9,36 +9,53 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js"></script>
   <!-- pdf-lib library for creating the new PDF -->
   <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+  <!-- Font Awesome for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <!-- Custom CSS -->
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <div class="container">
-  <h1>PGCPS Band/Orchestra Student Finder</h1>
-  <p class="subtitle">Find and contact potential band/orchestra students in your feeder form reports</p>
+  <header>
+    <h1><i class="fas fa-music"></i> PGCPS Band/Orchestra Student Finder</h1>
+    <p class="subtitle">Find and contact potential band/orchestra students in your feeder form reports</p>
+  </header>
 
-  <div class="instruction-box">
-    <h3>How to Get Your Student Feeder Report</h3>
-    <ol>
-      <li>Go to <strong><a href="https://sis.pgcps.org" target="_blank">sis.pgcps.org</a></strong> and click <strong>Apex Reports</strong> at the bottom <em>(only accessible at school or through the VPN)</em></li>
-      <li>Top Menu: <strong>School → Enrollment</strong></li>
-      <li>Click <strong>"Feeder Forms"</strong></li>
-      <li>Set <strong>"Receiving School"</strong> to your school (if shown)</li>
-      <li>Set <strong>"Current Grade Level"</strong> to <strong>"-- ALL --"</strong></li>
-      <li>Click <strong>"Generate Feeder Forms"</strong></li>
-    </ol>
-    <p>Upload the downloaded PDF here to automatically find all students currently in band or orchestra. The filtered PDF includes parent contact information so you can reach out to them right away.</p>
+  <div class="instruction-box collapsible">
+    <div class="instruction-header">
+      <h3><i class="fas fa-info-circle"></i> How to Get Your Student Feeder Report</h3>
+      <button class="toggle-btn" aria-label="Toggle instructions">
+        <i class="fas fa-chevron-down"></i>
+      </button>
+    </div>
+    <div class="instruction-content">
+      <ol>
+        <li>Go to <strong><a href="https://sis.pgcps.org" target="_blank">sis.pgcps.org</a></strong> and click <strong>Apex Reports</strong> at the bottom <em>(only accessible at school or through the VPN)</em></li>
+        <li>Top Menu: <strong>School → Enrollment</strong></li>
+        <li>Click <strong>"Feeder Forms"</strong></li>
+        <li>Set <strong>"Receiving School"</strong> to your school (if shown)</li>
+        <li>Set <strong>"Current Grade Level"</strong> to <strong>"-- ALL --"</strong></li>
+        <li>Click <strong>"Generate Feeder Forms"</strong></li>
+      </ol>
+      <p>Upload the downloaded PDF here to automatically find all students currently in band or orchestra. The filtered PDF includes parent contact information so you can reach out to them right away.</p>
+    </div>
   </div>
 
-  <div id="upload-form">
+  <div id="upload-form" class="card">
     <div class="form-group">
-      <label for="file-upload">Upload Your Feeder Form PDF</label>
-      <input type="file" id="file-upload" accept=".pdf">
+      <label for="file-upload"><i class="fas fa-file-pdf"></i> Upload Your Feeder Form PDF</label>
+      <div class="file-upload-container">
+        <input type="file" id="file-upload" accept=".pdf">
+        <div class="upload-placeholder">
+          <i class="fas fa-cloud-upload-alt"></i>
+          <span>Drag & drop or click to browse</span>
+        </div>
+      </div>
       <div id="file-info" class="file-info"></div>
     </div>
 
     <div class="form-group">
-      <label for="filter-type">Find Students In:</label>
+      <label for="filter-type"><i class="fas fa-filter"></i> Find Students In:</label>
       <select id="filter-type">
         <option value="both">Both Band and Orchestra</option>
         <option value="band">Only Band</option>
@@ -46,7 +63,9 @@
       </select>
     </div>
 
-    <button id="process-button" disabled>Find Students</button>
+    <button id="process-button" class="btn-primary" disabled>
+      <i class="fas fa-search"></i> Find Students
+    </button>
 
     <div id="progress-container" class="progress-container hidden">
       <p id="progress-text" class="progress-text">Processing PDF...</p>
@@ -58,11 +77,15 @@
     <div id="status-message" class="status-message hidden"></div>
   </div>
 
-  <div id="result-container" class="hidden">
+  <div id="result-container" class="card hidden">
     <div class="status-message success-message" id="summary-message"></div>
     <div class="button-group">
-      <a id="download-report" class="download-link" download="band_orchestra_students.pdf">Download Student List</a>
-      <button id="reset-button" class="secondary-button">Process Another Report</button>
+      <a id="download-report" class="download-link" download="band_orchestra_students.pdf">
+        <i class="fas fa-download"></i> Download Student List
+      </a>
+      <button id="reset-button" class="secondary-button">
+        <i class="fas fa-redo"></i> Process Another Report
+      </button>
     </div>
     <div class="pdf-preview">
       <iframe id="pdf-preview" title="PDF Report Preview"></iframe>
@@ -70,7 +93,7 @@
   </div>
 
   <footer>
-    <p>All processing happens in your browser. No files are uploaded to a server.</p>
+    <p><i class="fas fa-shield-alt"></i> All processing happens in your browser. No files are uploaded to a server.</p>
   </footer>
 </div>
 
