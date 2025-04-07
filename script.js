@@ -17,23 +17,106 @@ const downloadReport    = document.getElementById('download-report');
 const pdfPreview        = document.getElementById('pdf-preview');
 const resetButton       = document.getElementById('reset-button');
 const uploadForm        = document.getElementById('upload-form');
+const instructionBox    = document.querySelector('.instruction-box');
+const instructionHeader = document.querySelector('.instruction-header');
+const toggleBtn         = document.querySelector('.toggle-btn');
+const uploadPlaceholder = document.querySelector('.upload-placeholder');
 
 let selectedFile = null;
 let filteredPdfUrl = null;
+
+// Initialize UI
+document.addEventListener('DOMContentLoaded', function() {
+  // Initialize the collapsible instructions
+  instructionHeader.addEventListener('click', toggleInstructions);
+  
+  // Set up the file drop zone
+  setupFileDragAndDrop();
+});
 
 // Event listeners
 fileUpload.addEventListener('change', handleFileSelection);
 processButton.addEventListener('click', processPDF);
 resetButton.addEventListener('click', resetForm);
 
+// Toggle instructions visibility
+function toggleInstructions() {
+  instructionBox.classList.toggle('collapsed');
+  // Store preference in localStorage
+  const isCollapsed = instructionBox.classList.contains('collapsed');
+  localStorage.setItem('instructionsCollapsed', isCollapsed);
+}
+
+// Load saved preference for instructions visibility
+function loadSavedPreferences() {
+  const isCollapsed = localStorage.getItem('instructionsCollapsed') === 'true';
+  if (isCollapsed) {
+    instructionBox.classList.add('collapsed');
+  }
+}
+
+// Set up file drag and drop
+function setupFileDragAndDrop() {
+  const dropZone = document.querySelector('.file-upload-container');
+  
+  // Prevent default behaviors
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    dropZone.addEventListener(eventName, preventDefaults, false);
+  });
+  
+  // Highlight drop zone when file is dragged over it
+  ['dragenter', 'dragover'].forEach(eventName => {
+    dropZone.addEventListener(eventName, highlight, false);
+  });
+  
+  ['dragleave', 'drop'].forEach(eventName => {
+    dropZone.addEventListener(eventName, unhighlight, false);
+  });
+  
+  // Handle dropped files
+  dropZone.addEventListener('drop', handleDrop, false);
+  
+  function preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  
+  function highlight() {
+    dropZone.style.borderColor = '#4285f4';
+    dropZone.style.backgroundColor = 'rgba(66, 133, 244, 0.1)';
+  }
+  
+  function unhighlight() {
+    dropZone.style.borderColor = '#ddd';
+    dropZone.style.backgroundColor = '';
+  }
+  
+  function handleDrop(e) {
+    const dt = e.dataTransfer;
+    const files = dt.files;
+    
+    if (files.length > 0) {
+      fileUpload.files = files;
+      handleFileSelection({target: {files: files}});
+    }
+  }
+}
+
 function handleFileSelection(e) {
   const file = e.target.files[0];
+  
   if (file && file.type === 'application/pdf') {
     selectedFile = file;
-    fileInfo.textContent = `Selected file: ${file.name}`;
+    fileInfo.innerHTML = `<i class="fas fa-check-circle"></i> Selected: ${file.name}`;
     processButton.disabled = false;
     hideStatusMessage();
-  } else {
+    
+    // Update upload placeholder
+    uploadPlaceholder.innerHTML = `
+      <i class="fas fa-file-pdf"></i>
+      <span>${file.name}</span>
+    `;
+  } else if (file) {
     showStatusMessage('Please select a valid PDF file.', 'error');
     resetFileInput();
   }
@@ -44,12 +127,33 @@ function resetFileInput() {
   fileInfo.textContent = '';
   selectedFile = null;
   processButton.disabled = true;
+  
+  // Reset upload placeholder
+  uploadPlaceholder.innerHTML = `
+    <i class="fas fa-cloud-upload-alt"></i>
+    <span>Drag & drop or click to browse</span>
+  `;
 }
 
 function showStatusMessage(message, type = 'info') {
-  statusMessage.textContent = message;
+  statusMessage.innerHTML = `<i class="fas ${getIconForMessageType(type)}"></i> ${message}`;
   statusMessage.className = `status-message ${type}-message`;
   statusMessage.classList.remove('hidden');
+  
+  // Auto hide success messages after 5 seconds
+  if (type === 'success') {
+    setTimeout(() => {
+      hideStatusMessage();
+    }, 5000);
+  }
+}
+
+function getIconForMessageType(type) {
+  switch (type) {
+    case 'success': return 'fa-check-circle';
+    case 'error': return 'fa-exclamation-circle';
+    default: return 'fa-info-circle';
+  }
 }
 
 function hideStatusMessage() {
@@ -138,28 +242,36 @@ async function processPDF() {
     let studentEstimate = Math.max(bandCount, orchestraCount);
     
     if (filterOption === 'both') {
-      summary = `Found approximately ${studentEstimate} students currently in band or orchestra.
-        - ${bandCount} student page(s) with "BAND" in their schedule
-        - ${orchestraCount} student page(s) with "ORCHESTRA" in their schedule`;
+      summary = `<i class="fas fa-users"></i> Found approximately ${studentEstimate} students currently in band or orchestra.
+        <ul>
+          <li>${bandCount} student page(s) with "BAND" in their schedule</li>
+          <li>${orchestraCount} student page(s) with "ORCHESTRA" in their schedule</li>
+        </ul>`;
     } else if (filterOption === 'band') {
-      summary = `Found approximately ${bandCount} students currently in band.`;
+      summary = `<i class="fas fa-users"></i> Found approximately ${bandCount} students currently in band.`;
     } else {
-      summary = `Found approximately ${orchestraCount} students currently in orchestra.`;
+      summary = `<i class="fas fa-users"></i> Found approximately ${orchestraCount} students currently in orchestra.`;
     }
 
-    summaryMessage.textContent = summary;
+    summaryMessage.innerHTML = summary;
 
-    // Initiate automatic download
+    // Create download link
     downloadReport.href = newPdfUrl;
     downloadReport.download = 'band_orchestra_students.pdf';
-    downloadReport.click(); // auto-download
 
     // Show final UI
     progressContainer.classList.add('hidden');
     uploadForm.classList.add('hidden');
     resultContainer.classList.remove('hidden');
+    
+    // Add animation to the result container
+    resultContainer.style.animation = 'fadeIn 0.5s ease';
+    
     pdfPreview.src = newPdfUrl;
     filteredPdfUrl = newPdfUrl;
+    
+    // Show success message
+    showStatusMessage('PDF successfully processed!', 'success');
 
   } catch (err) {
     console.error(err);
@@ -181,6 +293,12 @@ function resetForm() {
   setProgress(0);
   updateProgressText('Processing PDF...');
   pdfPreview.src = '';
+  
+  // Reset upload placeholder
+  uploadPlaceholder.innerHTML = `
+    <i class="fas fa-cloud-upload-alt"></i>
+    <span>Drag & drop or click to browse</span>
+  `;
 
   if (filteredPdfUrl) {
     URL.revokeObjectURL(filteredPdfUrl);
@@ -196,3 +314,6 @@ function readFileAsUint8Array(file) {
     reader.readAsArrayBuffer(file);
   });
 }
+
+// Initialize on load
+loadSavedPreferences();
