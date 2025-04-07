@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PDF Processor for Band/Orchestra</title>
-    <!-- Load PDF.js and PDF-lib libraries -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <!-- Load libraries -->
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -320,10 +320,15 @@
                 
                 // Process the PDF
                 updateProgressText('Reading PDF file...');
-                const arrayBuffer = await readFileAsArrayBuffer(selectedFile);
+                
+                // Use a more reliable approach for reading the file
+                const fileData = await readFileAsArrayBuffer(selectedFile);
+                
+                // Convert ArrayBuffer to Uint8Array to prevent "detached ArrayBuffer" issues
+                const fileBytes = new Uint8Array(fileData);
                 
                 updateProgressText('Parsing PDF content...');
-                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                const pdf = await pdfjsLib.getDocument({ data: fileBytes }).promise;
                 const totalPages = pdf.numPages;
                 
                 // Words to search for
@@ -338,7 +343,6 @@
                 // Find pages that contain the search terms
                 updateProgressText('Scanning pages for matching terms...');
                 const pagesToKeep = [];
-                const matchLocations = {};
                 
                 for (let i = 1; i <= totalPages; i++) {
                     setProgress(Math.floor((i / totalPages) * 50));
@@ -349,30 +353,16 @@
                     const pageText = textContent.items.map(item => item.str.toUpperCase()).join(' ');
                     
                     let shouldKeepPage = false;
-                    const pageMatches = [];
                     
                     for (const term of searchTerms) {
                         if (pageText.includes(term)) {
                             shouldKeepPage = true;
-                            // Store match information for highlighting
-                            for (const item of textContent.items) {
-                                const upperItem = item.str.toUpperCase();
-                                if (upperItem.includes(term)) {
-                                    pageMatches.push({
-                                        term,
-                                        str: item.str,
-                                        transform: item.transform,
-                                        width: item.width,
-                                        height: item.height
-                                    });
-                                }
-                            }
+                            break;
                         }
                     }
                     
                     if (shouldKeepPage) {
                         pagesToKeep.push(i - 1); // pdf-lib uses 0-based indexing
-                        matchLocations[i - 1] = pageMatches;
                     }
                 }
                 
@@ -382,9 +372,10 @@
                 
                 // Create a new PDF with only the kept pages
                 updateProgressText('Creating filtered PDF...');
-                const { PDFDocument, rgb } = PDFLib;
-                const pdfDoc = await PDFDocument.load(arrayBuffer);
+                const { PDFDocument } = PDFLib;
                 
+                // Load the PDF document using the Uint8Array instead of ArrayBuffer
+                const pdfDoc = await PDFDocument.load(fileBytes);
                 const filteredPdfDoc = await PDFDocument.create();
                 
                 updateProgressText('Copying matching pages...');
@@ -393,11 +384,7 @@
                 for (let i = 0; i < copiedPages.length; i++) {
                     setProgress(50 + Math.floor((i / copiedPages.length) * 50));
                     updateProgressText(`Processing page ${i + 1} of ${copiedPages.length}...`);
-                    
                     filteredPdfDoc.addPage(copiedPages[i]);
-                    
-                    // Note: Full highlighting implementation would require additional work
-                    // to properly position highlight annotations based on text position data
                 }
                 
                 // Save the processed PDF
@@ -426,7 +413,7 @@
         function readFileAsArrayBuffer(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
-                reader.onload = () => resolve(reader.result);
+                reader.onload = (e) => resolve(e.target.result);
                 reader.onerror = (error) => reject(new Error('Error reading file: ' + error));
                 reader.readAsArrayBuffer(file);
             });
