@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Band/Orchestra Student Finder - PGCPS</title>
+  <title>Band/Orchestra Student Finder</title>
   <!-- PDF.js library for reading PDF text -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js"></script>
@@ -335,16 +335,6 @@
     hideStatusMessage();
     setProgress(0);
     updateProgressText('Reading file...');
-    
-    // Create page counter display
-    const counterDisplay = document.createElement('div');
-    counterDisplay.id = 'page-counter';
-    counterDisplay.style.marginTop = '10px';
-    counterDisplay.style.textAlign = 'center';
-    counterDisplay.style.fontSize = '14px';
-    counterDisplay.style.fontWeight = 'bold';
-    counterDisplay.innerText = 'Loading file...';
-    progressContainer.appendChild(counterDisplay);
 
     try {
       const filterOption = filterType.value; // "both", "band", "orchestra"
@@ -365,9 +355,6 @@
       for (let i = 1; i <= totalPages; i++) {
         setProgress(Math.floor((i / totalPages) * 100));
         updateProgressText(`Scanning page ${i} of ${totalPages}...`);
-        
-        // Update page counter display
-        document.getElementById('page-counter').innerText = `Reading page ${i} of ${totalPages}`;
 
         const page     = await pdfJsDoc.getPage(i);
         const textCont = await page.getTextContent();
@@ -456,12 +443,6 @@
     setProgress(0);
     updateProgressText('Processing PDF...');
     pdfPreview.src = '';
-
-    // Remove page counter if it exists
-    const pageCounter = document.getElementById('page-counter');
-    if (pageCounter) {
-      pageCounter.remove();
-    }
 
     if (filteredPdfUrl) {
       URL.revokeObjectURL(filteredPdfUrl);
