@@ -4,8 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PDF Processor for Band/Orchestra</title>
-    <!-- Load only PDF.js library -->
+    <!-- Load libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -122,6 +123,24 @@
             gap: 10px;
             margin-top: 20px;
         }
+        .button-group button, .button-group a {
+            flex: 1;
+        }
+        .download-link {
+            display: block;
+            text-align: center;
+            padding: 12px;
+            background-color: #4caf50;
+            color: white;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: background-color 0.3s;
+        }
+        .download-link:hover {
+            background-color: #388e3c;
+        }
         .results-list {
             margin-top: 20px;
             padding: 15px;
@@ -160,24 +179,32 @@
             font-size: 14px;
             color: #7f8c8d;
         }
-        .download-section {
+        .pdf-preview {
             margin-top: 20px;
-            text-align: center;
-        }
-        .info-box {
-            margin-top: 20px;
-            padding: 15px;
-            background-color: #fff3cd;
-            color: #856404;
-            border: 1px solid #ffeeba;
+            border: 1px solid #ddd;
             border-radius: 4px;
+            overflow: hidden;
+            height: 500px;
+        }
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        .secondary-button {
+            background-color: white;
+            color: #4285f4;
+            border: 1px solid #4285f4;
+        }
+        .secondary-button:hover {
+            background-color: #f5f5f5;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>PDF Processor for Band/Orchestra</h1>
-        <p class="subtitle">Find pages containing "BAND" and "ORCHESTRA" in your PDF</p>
+        <p class="subtitle">Filter and identify pages containing "BAND" and "ORCHESTRA"</p>
         
         <div id="upload-form">
             <div class="form-group">
@@ -215,12 +242,13 @@
                 <div id="pages-container"></div>
             </div>
             
-            <div class="info-box">
-                Note: This tool identifies pages containing your search terms. To create a filtered PDF with only these pages, you'll need to use a PDF editor with your list of page numbers.
+            <div class="button-group">
+                <a id="download-link" class="download-link" download="filtered-pdf.pdf">Download PDF Report</a>
+                <button id="reset-button" class="secondary-button">Process Another PDF</button>
             </div>
             
-            <div class="button-group">
-                <button id="reset-button">Process Another PDF</button>
+            <div class="pdf-preview">
+                <iframe id="pdf-preview" title="Processed PDF Preview"></iframe>
             </div>
         </div>
         
@@ -244,6 +272,8 @@
         const statusMessage = document.getElementById('status-message');
         const resultContainer = document.getElementById('result-container');
         const pagesContainer = document.getElementById('pages-container');
+        const downloadLink = document.getElementById('download-link');
+        const pdfPreview = document.getElementById('pdf-preview');
         const resetButton = document.getElementById('reset-button');
         const uploadForm = document.getElementById('upload-form');
         
@@ -373,6 +403,10 @@
                     pagesContainer.appendChild(pageItem);
                 });
                 
+                // Create a PDF report
+                updateProgressText('Creating PDF report...');
+                await createPDFReport(matchingPages, selectedFile.name);
+                
                 // Hide form, show results
                 uploadForm.classList.add('hidden');
                 resultContainer.classList.remove('hidden');
@@ -382,6 +416,78 @@
                 showStatusMessage(`Error processing PDF: ${error.message}`, 'error');
                 processButton.disabled = false;
                 progressContainer.classList.add('hidden');
+            }
+        }
+        
+        async function createPDFReport(matchingPages, fileName) {
+            try {
+                // Create a new jsPDF instance
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                
+                // Add title
+                doc.setFontSize(18);
+                doc.text('PDF Analysis Report', 105, 20, { align: 'center' });
+                
+                // Add file info
+                doc.setFontSize(12);
+                doc.text(`File: ${fileName}`, 20, 30);
+                doc.text(`Filter: ${filterType.value === 'both' ? 'Both Band and Orchestra' : 
+                                  filterType.value === 'band' ? 'Only Band' : 'Only Orchestra'}`, 20, 40);
+                doc.text(`Pages found: ${matchingPages.length}`, 20, 50);
+                
+                // Add page list
+                doc.setFontSize(14);
+                doc.text('Pages with matches:', 20, 65);
+                
+                let yPos = 75;
+                matchingPages.forEach((page, index) => {
+                    // Check if we need a new page
+                    if (yPos > 270) {
+                        doc.addPage();
+                        yPos = 20;
+                    }
+                    
+                    doc.setFontSize(12);
+                    doc.text(`Page ${page.pageNumber}: Contains ${page.matches.join(', ')}`, 30, yPos);
+                    yPos += 10;
+                });
+                
+                // Add summary and instructions
+                yPos += 10;
+                if (yPos > 250) {
+                    doc.addPage();
+                    yPos = 20;
+                }
+                
+                doc.setFontSize(14);
+                doc.text('Instructions:', 20, yPos);
+                yPos += 10;
+                
+                const instructions = [
+                    '1. Open your original PDF in a PDF editor.',
+                    '2. Keep only the pages listed in this report.',
+                    '3. Save the result as a new PDF file.'
+                ];
+                
+                instructions.forEach(instruction => {
+                    doc.setFontSize(12);
+                    doc.text(instruction, 30, yPos);
+                    yPos += 10;
+                });
+                
+                // Save PDF
+                const pdfBlob = doc.output('blob');
+                const pdfUrl = URL.createObjectURL(pdfBlob);
+                
+                // Set download link and preview
+                downloadLink.href = pdfUrl;
+                pdfPreview.src = pdfUrl;
+                
+                return pdfUrl;
+            } catch (error) {
+                console.error('Error creating PDF report:', error);
+                throw new Error('Failed to create PDF report');
             }
         }
         
