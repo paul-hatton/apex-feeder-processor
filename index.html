@@ -7,7 +7,7 @@
   <!-- PDF.js library for reading PDF text -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js"></script>
-  <!-- pdf-lib library for building/highlighting PDF -->
+  <!-- pdf-lib library for creating the new PDF -->
   <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
   <style>
     body {
@@ -124,35 +124,6 @@
       color: #0c5460;
       border: 1px solid #bee5eb;
     }
-    .results-list {
-      margin-top: 20px;
-      padding: 15px;
-      background-color: #f8f9fa;
-      border-radius: 4px;
-      border: 1px solid #ddd;
-    }
-    .results-list h3 {
-      margin-top: 0;
-      color: #4285f4;
-    }
-    .page-item {
-      margin-bottom: 10px;
-      padding-bottom: 10px;
-      border-bottom: 1px solid #eee;
-    }
-    .page-item:last-child {
-      margin-bottom: 0;
-      padding-bottom: 0;
-      border-bottom: none;
-    }
-    .page-number {
-      font-weight: bold;
-    }
-    .match-highlight {
-      background-color: #ffeb3b;
-      padding: 2px 4px;
-      border-radius: 2px;
-    }
     .hidden {
       display: none;
     }
@@ -210,8 +181,8 @@
 <body>
 <div class="container">
   <h1>PDF Processor for Band/Orchestra</h1>
-  <p class="version">Version 3.0 - With Page Extraction & Highlighting</p>
-  <p class="subtitle">Find pages containing "BAND" and/or "ORCHESTRA", highlight them, and remove other pages.</p>
+  <p class="version">Version 4.0 - Page Extraction Only</p>
+  <p class="subtitle">Extract pages containing "BAND" or "ORCHESTRA" and automatically download the filtered PDF.</p>
 
   <div id="upload-form">
     <div class="form-group">
@@ -242,13 +213,9 @@
   </div>
 
   <div id="result-container" class="hidden">
-    <div class="status-message success-message">PDF processed successfully!</div>
-    <div id="results-list" class="results-list">
-      <h3>Pages with Matches:</h3>
-      <div id="pages-container"></div>
-    </div>
+    <div class="status-message success-message" id="summary-message"></div>
     <div class="button-group">
-      <a id="download-report" class="download-link" download="pdf-report.pdf">Download New PDF</a>
+      <a id="download-report" class="download-link" download="filtered.pdf">Download Filtered PDF</a>
       <button id="reset-button" class="secondary-button">Process Another PDF</button>
     </div>
     <div class="pdf-preview">
@@ -257,13 +224,14 @@
   </div>
 
   <footer>
-    <p>PDF processing is done entirely in your browser. No files are uploaded to any server.</p>
+    <p>All processing happens in your browser. No files are uploaded to a server.</p>
   </footer>
 </div>
 
 <script>
-  // PDF.js worker
-  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+  // Set up PDF.js worker
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
 
   // DOM elements
   const fileUpload        = document.getElementById('file-upload');
@@ -275,15 +243,16 @@
   const progressFill      = document.getElementById('progress-fill');
   const statusMessage     = document.getElementById('status-message');
   const resultContainer   = document.getElementById('result-container');
-  const pagesContainer    = document.getElementById('pages-container');
+  const summaryMessage    = document.getElementById('summary-message');
   const downloadReport    = document.getElementById('download-report');
   const pdfPreview        = document.getElementById('pdf-preview');
   const resetButton       = document.getElementById('reset-button');
   const uploadForm        = document.getElementById('upload-form');
 
   let selectedFile = null;
-  let reportPdfUrl = null;
+  let filteredPdfUrl = null;
 
+  // Event listeners
   fileUpload.addEventListener('change', handleFileSelection);
   processButton.addEventListener('click', processPDF);
   resetButton.addEventListener('click', resetForm);
@@ -319,7 +288,7 @@
   }
 
   function setProgress(value) {
-    progressFill.style.width = `${value}%`;
+    progressFill.style.width = value + '%';
   }
 
   function updateProgressText(text) {
@@ -329,169 +298,106 @@
   async function processPDF() {
     if (!selectedFile) return;
 
+    // Prepare UI
+    processButton.disabled = true;
+    progressContainer.classList.remove('hidden');
+    hideStatusMessage();
+    setProgress(0);
+    updateProgressText('Reading file...');
+
     try {
-      processButton.disabled = true;
-      progressContainer.classList.remove('hidden');
-      hideStatusMessage();
-      setProgress(0);
+      const filterOption = filterType.value; // "both", "band", "orchestra"
+      const fileData     = await readFileAsUint8Array(selectedFile);
 
-      const filterOption = filterType.value; // "both", "band", or "orchestra"
-      const searchTerms = [];
-      if (filterOption === 'both' || filterOption === 'band') {
-        searchTerms.push('BAND');
-      }
-      if (filterOption === 'both' || filterOption === 'orchestra') {
-        searchTerms.push('ORCHESTRA');
-      }
+      // Load with PDF.js to extract text
+      const pdfJsDoc  = await pdfjsLib.getDocument(fileData).promise;
+      const totalPages = pdfJsDoc.numPages;
 
-      updateProgressText('Reading PDF file...');
-      const fileData = await readFileAsUint8Array(selectedFile);
-
-      updateProgressText('Loading PDF for analysis...');
-      const pdfDocument = await pdfjsLib.getDocument(fileData).promise;
-      const totalPages  = pdfDocument.numPages;
-
-      updateProgressText(`PDF loaded. Total pages: ${totalPages}`);
-      const matchingPages = [];
-
-      // We'll also load the PDF once with pdf-lib so we can copy pages & highlight.
+      // Also load with pdf-lib to copy pages
       const originalPdfLibDoc = await PDFLib.PDFDocument.load(fileData);
-      // New PDF to store the filtered pages + highlights
-      const newPdfDoc = await PDFLib.PDFDocument.create();
+      const newPdfDoc         = await PDFLib.PDFDocument.create();
+
+      // Keep track of how many pages matched each term
+      let bandCount = 0;
+      let orchestraCount = 0;
 
       for (let i = 1; i <= totalPages; i++) {
         setProgress(Math.floor((i / totalPages) * 100));
         updateProgressText(`Analyzing page ${i} of ${totalPages}...`);
 
-        const page = await pdfDocument.getPage(i);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items.map(it => it.str.toUpperCase()).join(' ');
+        const page     = await pdfJsDoc.getPage(i);
+        const textCont = await page.getTextContent();
+        const pageText = textCont.items.map(item => item.str.toUpperCase()).join(' ');
 
-        // Check if it matches the search terms
-        let pageHasTerm = false;
-        for (const term of searchTerms) {
-          if (pageText.includes(term)) {
-            pageHasTerm = true;
-            break;
-          }
+        const hasBand       = pageText.includes('BAND');
+        const hasOrchestra  = pageText.includes('ORCHESTRA');
+
+        // Decide if we keep this page based on filter
+        let keepPage = false;
+        if (filterOption === 'both') {
+          keepPage = hasBand || hasOrchestra;
+        } else if (filterOption === 'band') {
+          keepPage = hasBand;
+        } else if (filterOption === 'orchestra') {
+          keepPage = hasOrchestra;
         }
 
-        if (pageHasTerm) {
-          // Record that this page matched
-          const foundMatches = [];
-          // We'll keep track of chunk positions for highlight
-          textContent.items.forEach(item => {
-            const chunkText = item.str;
-            const chunkTextUpper = chunkText.toUpperCase();
-
-            // If chunk doesn't contain any search terms, skip
-            let hasTerm = false;
-            for (const term of searchTerms) {
-              if (chunkTextUpper.includes(term)) {
-                hasTerm = true;
-                break;
-              }
-            }
-            if (!hasTerm) return;
-
-            // We'll highlight the entire chunk for any matched term.
-            // If you want to highlight only the exact “BAND” substring,
-            // you'd do more granular bounding with chunkText.indexOf(...).
-            const transform = item.transform; // [scaleX, skewX, skewY, scaleY, offsetX, offsetY]
-            const xOffset   = transform[4];
-            const yOffset   = transform[5];
-            const fontHeight= Math.abs(transform[3]);
-            // PDF.js doesn’t always provide chunk width, but item.width is sometimes available in newer versions.
-            // If not, approximate with: chunkWidth = Math.abs(transform[0]) * chunkText.length * (some factor).
-            const approximateWidth = item.width || (Math.abs(transform[0]) * chunkText.length * 0.5);
-
-            foundMatches.push({
-              x: xOffset,
-              y: yOffset,
-              width: approximateWidth,
-              height: fontHeight
-            });
-          });
-
-          matchingPages.push(i);
-
-          // Copy page from original PDF into new PDF
+        if (keepPage) {
           const [copiedPage] = await newPdfDoc.copyPages(originalPdfLibDoc, [i - 1]);
           newPdfDoc.addPage(copiedPage);
 
-          // Now highlight the found matches on that copied page
-          drawRectanglesForMatches(copiedPage, foundMatches);
+          if (hasBand) bandCount++;
+          if (hasOrchestra) orchestraCount++;
         }
       }
 
-      // If none matched, show message
-      if (matchingPages.length === 0) {
+      // If no pages matched, show message
+      if (newPdfDoc.getPageCount() === 0) {
         progressContainer.classList.add('hidden');
         showStatusMessage('No pages found containing the selected terms.', 'error');
         processButton.disabled = false;
         return;
       }
 
-      // Build result list in the UI
-      pagesContainer.innerHTML = '';
-      matchingPages.forEach(pg => {
-        const pageItem = document.createElement('div');
-        pageItem.className = 'page-item';
-        pageItem.innerHTML = `<div><span class="page-number">Page ${pg}</span> 
-                              contains <span class="match-highlight">${searchTerms.join(' / ')}</span></div>`;
-        pagesContainer.appendChild(pageItem);
-      });
-
-      // Save new PDF
-      updateProgressText('Generating new PDF with highlights...');
+      updateProgressText('Generating filtered PDF...');
       const newPdfBytes = await newPdfDoc.save();
       const newPdfBlob  = new Blob([newPdfBytes], { type: 'application/pdf' });
       const newPdfUrl   = URL.createObjectURL(newPdfBlob);
 
-      // Set download link & preview
-      downloadReport.href = newPdfUrl;
-      pdfPreview.src      = newPdfUrl;
-      reportPdfUrl        = newPdfUrl;  // keep track to revoke if reset
+      // Show a brief summary
+      // If user selected "both," let's show how many times Band/Orchestra occurred in the kept pages.
+      // If user selected "band" only, show bandCount. If "orchestra," show orchestraCount, etc.
+      let summary = '';
+      if (filterOption === 'both') {
+        summary = `Kept pages containing "BAND" or "ORCHESTRA". 
+          - BAND appeared in ${bandCount} kept page(s).
+          - ORCHESTRA appeared in ${orchestraCount} kept page(s).`;
+      } else if (filterOption === 'band') {
+        summary = `Kept pages containing "BAND". (Found "BAND" on ${bandCount} page(s).)`;
+      } else {
+        summary = `Kept pages containing "ORCHESTRA". (Found "ORCHESTRA" on ${orchestraCount} page(s).)`;
+      }
 
-      // Show final results
+      summaryMessage.textContent = summary;
+
+      // Initiate automatic download
+      downloadReport.href = newPdfUrl;
+      downloadReport.download = 'filtered.pdf';
+      downloadReport.click(); // auto-download
+
+      // Show final UI
       progressContainer.classList.add('hidden');
       uploadForm.classList.add('hidden');
       resultContainer.classList.remove('hidden');
+      pdfPreview.src = newPdfUrl;
+      filteredPdfUrl = newPdfUrl;
 
     } catch (err) {
-      console.error('Error processing PDF:', err);
-      showStatusMessage(`Error processing PDF: ${err.message}`, 'error');
+      console.error(err);
+      showStatusMessage('Error processing PDF: ' + err.message, 'error');
       processButton.disabled = false;
       progressContainer.classList.add('hidden');
     }
-  }
-
-  // Draw yellow rectangles for each text chunk containing a match.
-  // Note: PDF-lib has (0,0) at bottom-left, so we flip y with respect to the page height.
-  function drawRectanglesForMatches(copiedPage, matches) {
-    const pageHeight = copiedPage.getSize().height;
-
-    matches.forEach(m => {
-      const highlightY = pageHeight - m.y;  // Flip the Y
-      copiedPage.drawRectangle({
-        x: m.x,
-        // Shift it down by the chunk's height so it aligns behind the text
-        y: highlightY - m.height,
-        width: m.width,
-        height: m.height,
-        color: PDFLib.rgb(1, 1, 0), // bright yellow
-        opacity: 0.5
-      });
-    });
-  }
-
-  function readFileAsUint8Array(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = e => resolve(new Uint8Array(e.target.result));
-      reader.onerror = err => reject(err);
-      reader.readAsArrayBuffer(file);
-    });
   }
 
   function resetForm() {
@@ -507,10 +413,19 @@
     updateProgressText('Processing PDF...');
     pdfPreview.src = '';
 
-    if (reportPdfUrl) {
-      URL.revokeObjectURL(reportPdfUrl);
-      reportPdfUrl = null;
+    if (filteredPdfUrl) {
+      URL.revokeObjectURL(filteredPdfUrl);
+      filteredPdfUrl = null;
     }
+  }
+
+  function readFileAsUint8Array(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = e => resolve(new Uint8Array(e.target.result));
+      reader.onerror = err => reject(err);
+      reader.readAsArrayBuffer(file);
+    });
   }
 </script>
 </body>
